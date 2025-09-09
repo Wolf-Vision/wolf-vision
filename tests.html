@@ -1,0 +1,787 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Wolf Vision — Testes e Instruções</title>
+  <meta name="description" content="Instruções e testes de triagem visual: acuidade, astigmatismo, daltonismo, contraste, visão periférica e leitura próxima." />
+  <meta name="theme-color" content="#00C853" />
+
+  <!-- Fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Playfair+Display:ital,wght@0,700;1,800&display=swap" rel="stylesheet">
+  
+  <!-- CSS -->
+  <link rel="stylesheet" href="styles.css" />
+  <link rel="icon" href="favicon.ico" />
+
+  <style>
+    /* Estilos adicionais para componentes dos testes */
+    .subtle { color: #555; font-size: 0.95rem; }
+    .note { background: #f6fff8; border-left: 4px solid #00C853; padding: 0.75rem 1rem; border-radius: 6px; }
+    .mini-nav { display: flex; gap: .5rem; flex-wrap: wrap; margin-top: .75rem; }
+    .mini-nav a { font-size: .9rem; }
+    .tools { display: grid; gap: .75rem; }
+    .test-card { background: #fff; border: 1px solid #eaeaea; border-radius: 12px; padding: 1rem; }
+    .muted { color: #6b7280; }
+    .center { text-align: center; }
+    .stack { display: grid; gap: .75rem; }
+    .two-col { display: grid; gap: 1rem; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); align-items: start; }
+    .section .section-header p { max-width: 60ch; }
+    .kbd { background:#f3f4f6; border:1px solid #e5e7eb; border-radius:6px; padding:.1rem .35rem; font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace; }
+    .small { font-size: .85rem; }
+    .btn-row { display: flex; gap: .5rem; flex-wrap: wrap; }
+
+    /* Calibração */
+    .calibration-wrap { display: grid; gap: 1rem; grid-template-columns: 1fr; }
+    .calibration-bar { height: 54px; background: repeating-linear-gradient(90deg, #e0e0e0, #e0e0e0 10px, #f5f5f5 10px, #f5f5f5 20px); border: 1px dashed #bdbdbd; border-radius: 8px; position: relative; }
+    .calibration-bar .label { position: absolute; inset: 0; display: grid; place-items: center; font-weight: 600; color: #444; }
+
+    /* Acuidade: Snellen simplificada */
+    .snellen { display: grid; gap: .5rem; align-items: center; justify-items: center; margin-top: 1rem; }
+    .snellen-line { font-family: "Inter", system-ui, sans-serif; font-weight: 700; letter-spacing: .08em; }
+    .snellen-controls { display: grid; gap: .5rem; margin-top: .75rem; }
+    .snellen-lines { display: grid; gap: .25rem; }
+    .snellen .ratio { font-size: .8rem; color: #64748b; }
+
+    /* Astigmatismo: roda */
+    .wheel-wrap { display: grid; justify-items: center; gap: .75rem; }
+    .wheel { position: relative; width: min(80vw, 340px); aspect-ratio: 1; border-radius: 50%; background: radial-gradient(circle, #fff 0%, #f8fafc 70%); border: 1px solid #e5e7eb; overflow: hidden; }
+    .wheel .ray { position: absolute; top: 50%; left: 50%; width: 2px; height: 48%; background: #0f172a; transform-origin: 0 0; }
+    .wheel-controls { display: flex; gap: .75rem; align-items: center; flex-wrap: wrap; }
+
+    /* Contraste */
+    .contrast-grid { display: grid; gap: .5rem; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); margin-top: .75rem; }
+    .contrast-card { border: 1px solid #e5e7eb; border-radius: 10px; overflow: hidden; background: #fff; }
+    .contrast-label { padding: .5rem .75rem; font-size: .9rem; color: #334155; border-bottom: 1px solid #e5e7eb; background: #f8fafc; }
+    .contrast-view { height: 80px; background-size: 20px 100%; }
+    .contrast-stripes { background-image: repeating-linear-gradient(90deg, rgba(0,0,0,var(--amp,1)), rgba(0,0,0,var(--amp,1)) 10px, rgba(255,255,255,var(--amp,1)) 10px, rgba(255,255,255,var(--amp,1)) 20px); }
+
+    /* Periférica */
+    .peripheral { display: grid; justify-items: center; gap: .75rem; }
+    .fixation { width: min(80vw, 360px); aspect-ratio: 1; border: 1px dashed #cbd5e1; border-radius: 8px; position: relative; background: radial-gradient(circle, #ffffff 0%, #f8fafc 100%); }
+    .fixation .dot { width: 10px; height: 10px; border-radius: 50%; background: #ef4444; position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); }
+    .blink { width: 12px; height: 12px; background: #0ea5e9; border-radius: 50%; position: absolute; animation: blink 1.6s infinite; }
+    @keyframes blink { 0%, 60% { opacity: .15 } 70%, 100% { opacity: 1 } }
+
+    /* Leitura próxima */
+    .near-text { display: grid; gap: .5rem; margin-top: .5rem; }
+    .near-block { border: 1px solid #e5e7eb; border-radius: 10px; padding: .75rem; background: #fff; }
+    .near-meta { font-size: .85rem; color: #64748b; margin-bottom: .25rem; }
+
+    /* Utilidades */
+    .max-60 { max-width: 60ch; }
+  </style>
+</head>
+<body>
+  <a class="skip-link" href="#conteudo">Ir para o conteúdo</a>
+
+  <header class="site-header">
+    <div class="container header-wrap">
+      <a class="logo" href="index.html" aria-label="Wolf Vision, página inicial">
+        <span class="logo-mark" aria-hidden="true">W</span>
+        <span class="logo-type">Wolf Vision</span>
+      </a>
+
+      <nav class="nav" aria-label="Principal">
+        <ul>
+          <li><a href="testes.html">Testes</a></li>
+          <li><a href="index.html#como-funciona">Como funciona</a></li>
+          <li><a href="index.html#sobre">Sobre</a></li>
+          <li><a href="index.html#faq">FAQ</a></li>
+        </ul>
+      </nav>
+
+      <div class="header-cta">
+        <a class="btn btn-ghost" href="index.html#sobre">Saiba mais</a>
+        <a class="btn btn-primary" href="#acuidade">Iniciar agora</a>
+      </div>
+    </div>
+  </header>
+
+  <main id="conteudo">
+    <section class="section">
+      <div class="container">
+        <header class="section-header">
+          <h1>Testes e Instruções</h1>
+          <p class="max-60">Faça triagens rápidas: acuidade visual, astigmatismo, daltonismo (Ishihara), sensibilidade ao contraste, visão periférica e leitura próxima. Resultados são orientativos e não substituem consulta com especialista.</p>
+          <nav class="mini-nav" aria-label="Atalhos para testes">
+            <a class="btn btn-outline btn-sm" href="#acuidade">Acuidade</a>
+            <a class="btn btn-outline btn-sm" href="#astigmatismo">Astigmatismo</a>
+            <a class="btn btn-outline btn-sm" href="#daltonismo">Daltonismo</a>
+            <a class="btn btn-outline btn-sm" href="#contraste">Contraste</a>
+            <a class="btn btn-outline btn-sm" href="#periferica">Periférica</a>
+            <a class="btn btn-outline btn-sm" href="#leitura">Leitura próxima</a>
+          </nav>
+        </header>
+
+        <aside class="note small" role="note">
+          Dica: aumente o brilho da tela, limpe o display e use seus óculos habituais (se tiver). Faça os testes em um ambiente bem iluminado.
+        </aside>
+      </div>
+    </section>
+
+    <!-- CALIBRAÇÃO -->
+    <section id="calibracao" class="section section-alt">
+      <div class="container">
+        <header class="section-header">
+          <h2>Antes de começar: calibração (opcional)</h2>
+          <p class="max-60">Para melhor aproximação do tamanho das letras/elementos, calibre sua tela usando um cartão bancário (85,6 mm de largura).</p>
+        </header>
+
+        <div class="calibration-wrap">
+          <div class="test-card">
+            <div class="two-col">
+              <div class="stack">
+                <label for="calWidth">Ajuste a largura abaixo até coincidir com seu cartão físico:</label>
+                <div class="calibration-bar" aria-label="Barra de calibração">
+                  <div class="label" id="calLabel">Largura: 85.6 mm (aprox.)</div>
+                </div>
+                <input id="calWidth" type="range" min="200" max="600" step="1" value="340" aria-label="Controle de largura">
+                <div class="btn-row">
+                  <button class="btn btn-primary" id="saveCal">Salvar calibração</button>
+                  <button class="btn btn-ghost" id="clearCal">Limpar calibração</button>
+                </div>
+                <p class="subtle" id="calStatus">Sem calibração — os tamanhos serão aproximados.</p>
+              </div>
+              <div class="stack">
+                <label for="distInput">Distância até a tela</label>
+                <div class="two-col">
+                  <input id="distInput" type="number" class="input" min="20" max="600" step="5" placeholder="ex: 300" aria-label="Distância em centímetros">
+                  <select id="distUnit" class="input" aria-label="Unidade">
+                    <option value="cm" selected>cm</option>
+                    <option value="m">m</option>
+                  </select>
+                </div>
+                <p class="small muted">Sugestões: 3 m para acuidade à distância (em TV/monitor) ou 40 cm para leitura próxima (em celular).</p>
+              </div>
+            </div>
+          </div>
+          <p class="small muted">Obs.: Mesmo calibrado, fatores como zoom do navegador, tipo de fonte e densidade de pixels do aparelho podem afetar a precisão.</p>
+        </div>
+      </div>
+    </section>
+
+    <!-- ACUIDADE VISUAL -->
+    <section id="acuidade" class="section">
+      <div class="container">
+        <header class="section-header">
+          <h2>Acuidade Visual (tabela de letras)</h2>
+          <p class="max-60">Avalia a nitidez da visão para longe. Cubra um olho por vez sem pressionar a pálpebra.</p>
+        </header>
+
+        <div class="two-col">
+          <div class="test-card">
+            <h3>Instruções rápidas</h3>
+            <ul>
+              <li>Defina a distância: idealmente 3 m para TV/monitor. Em celular, use a maior distância possível.</li>
+              <li>Use seus óculos habituais, se tiver. Cubra o olho esquerdo, depois o direito.</li>
+              <li>Leia a menor linha que conseguir com segurança (sem adivinhar).</li>
+            </ul>
+            <p class="small muted">Se você calibrar a tela e informar a distância, os tamanhos abaixo se ajustam de forma aproximada.</p>
+          </div>
+
+          <div class="test-card">
+            <div class="snellen-controls">
+              <label for="eyeSelect">Olho sendo testado</label>
+              <select id="eyeSelect" class="input">
+                <option value="OD">Direito (OD)</option>
+                <option value="OE">Esquerdo (OE)</option>
+              </select>
+            </div>
+
+            <div class="snellen" id="snellenArea" aria-label="Linhas de acuidade">
+              <!-- Linhas geradas via JS -->
+            </div>
+
+            <div class="snellen-controls">
+              <label for="lastLine">Selecione a última linha lida com conforto</label>
+              <select id="lastLine" class="input"></select>
+              <div class="btn-row">
+                <button class="btn btn-primary" id="saveAcuity">Salvar resultado do olho selecionado</button>
+                <button class="btn btn-ghost" id="resetAcuity">Limpar</button>
+              </div>
+              <p class="small muted" id="acuityResult">Sem resultados salvos.</p>
+            </div>
+          </div>
+        </div>
+
+        <aside class="note small" role="note">
+          Sinais de atenção: dificuldade súbita para ler linhas maiores, visão dupla, dor, flashes de luz ou perda visual — procure atendimento imediato.
+        </aside>
+      </div>
+    </section>
+
+    <!-- ASTIGMATISMO -->
+    <section id="astigmatismo" class="section section-alt">
+      <div class="container">
+        <header class="section-header">
+          <h2>Astigmatismo (roda de linhas)</h2>
+          <p class="max-60">Verifica se algumas direções de linhas parecem mais escuras/espessas que outras. Faça com um olho por vez.</p>
+        </header>
+
+        <div class="two-col">
+          <div class="test-card">
+            <h3>Instruções</h3>
+            <ul>
+              <li>Afaste-se ~40–60 cm (celular) ou ~1–2 m (monitor).</li>
+              <li>Fixe no centro. Cubra um olho sem pressionar.</li>
+              <li>Observe se algum conjunto de linhas (por ex., vertical, 45°, horizontal) parece mais nítido/escuro.</li>
+            </ul>
+            <p class="small muted">Se há diferença consistente entre direções, pode sugerir astigmatismo — especialmente se ocorre em ambos os olhos.</p>
+          </div>
+
+          <div class="test-card wheel-wrap">
+            <div class="wheel" id="wheel" aria-label="Roda de astigmatismo">
+              <!-- Raios gerados via JS -->
+            </div>
+            <div class="wheel-controls">
+              <label for="thickness" class="small muted">Espessura da linha</label>
+              <input id="thickness" type="range" min="1" max="5" step="1" value="2">
+            </div>
+            <div class="stack">
+              <label for="astigAnswer">Alguma direção parece mais escura?</label>
+              <select id="astigAnswer" class="input">
+                <option value="">Selecione...</option>
+                <option value="nao">Não</option>
+                <option value="leve">Sim, levemente</option>
+                <option value="marcante">Sim, marcante</option>
+              </select>
+              <button class="btn btn-primary" id="saveAstig">Salvar observação</button>
+              <p class="small muted" id="astigResult">Sem observações salvas.</p>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- DALTONISMO -->
+    <section id="daltonismo" class="section">
+      <div class="container">
+        <header class="section-header">
+          <h2>Daltonismo (Ishihara — triagem)</h2>
+          <p class="max-60">Teste básico de percepção de cores com pranchas tipo Ishihara. Mantenha brilho adequado e evite modo noturno/filtros de cor.</p>
+        </header>
+
+        <div class="two-col">
+          <div class="test-card">
+            <h3>Instruções</h3>
+            <ul>
+              <li>Faça em ambiente bem iluminado e tela com brilho médio/alto.</li>
+              <li>Não use filtros de cor. Cubra um olho por vez, se desejar maior precisão.</li>
+              <li>Diga qual número vê em cada prancha (ou se não enxerga número algum).</li>
+            </ul>
+            <p class="small muted">Este é um rastreio. Resultados anormais devem ser avaliados por profissional com teste padronizado.</p>
+          </div>
+
+          <div class="test-card">
+            <div class="stack" id="ishiharaArea" aria-label="Pranchas Ishihara simplificadas">
+              <!-- Substitua os src abaixo por arquivos locais de pranchas, se preferir -->
+              <div class="stack">
+                <img src="https://upload.wikimedia.org/wikipedia/commons/9/95/Ishihara_9.png" alt="Prancha tipo Ishihara — exemplo 1" width="300" height="300" loading="lazy">
+                <label>O que você vê?</label>
+                <input type="text" class="input ish-answer" placeholder="ex: 12">
+              </div>
+              <div class="stack">
+                <img src="https://upload.wikimedia.org/wikipedia/commons/3/33/Ishihara_13.png" alt="Prancha tipo Ishihara — exemplo 2" width="300" height="300" loading="lazy">
+                <label>O que você vê?</label>
+                <input type="text" class="input ish-answer" placeholder="ex: 8">
+              </div>
+              <div class="stack">
+                <img src="https://upload.wikimedia.org/wikipedia/commons/4/45/Ishihara_38.png" alt="Prancha tipo Ishihara — exemplo 3" width="300" height="300" loading="lazy">
+                <label>O que você vê?</label>
+                <input type="text" class="input ish-answer" placeholder="ex: 29">
+              </div>
+              <div class="btn-row">
+                <button class="btn btn-primary" id="saveIshi">Salvar respostas</button>
+                <button class="btn btn-ghost" id="clearIshi">Limpar</button>
+              </div>
+              <p class="small muted" id="ishiResult">Sem respostas salvas.</p>
+            </div>
+            <p class="small muted">Crédito das imagens: Wikimedia Commons (pranchas de exemplo para fins educacionais).</p>
+          </div>
+        </div>
+
+        <aside class="note small" role="note">
+          Se as respostas diferirem do esperado em várias pranchas, pode indicar alteração na percepção de cores (protan/deutan/tritan). Procure avaliação especializada.
+        </aside>
+      </div>
+    </section>
+
+    <!-- CONTRASTE -->
+    <section id="contraste" class="section section-alt">
+      <div class="container">
+        <header class="section-header">
+          <h2>Sensibilidade ao Contraste</h2>
+          <p class="max-60">Verifique sua capacidade de distinguir listras de baixo contraste. Faça com um olho por vez.</p>
+        </header>
+
+        <div class="two-col">
+          <div class="test-card">
+            <h3>Instruções</h3>
+            <ul>
+              <li>Afaste-se ~40–60 cm (celular) ou ~1 m (monitor).</li>
+              <li>Fixe em cada cartão e observe se consegue distinguir listras claras e escuras.</li>
+              <li>Assinale até qual nível consegue ver as listras com confiança.</li>
+            </ul>
+            <p class="small muted">Queda de contraste é comum em catarata, doenças de retina, etc.</p>
+          </div>
+
+          <div class="test-card">
+            <div class="contrast-grid" id="contrastGrid" aria-label="Cartões de contraste">
+              <!-- Gerado via JS -->
+            </div>
+            <div class="stack">
+              <label for="contrastLevel">Maior nível (número) em que você ainda vê listras</label>
+              <input id="contrastLevel" type="number" class="input" min="1" max="8" step="1" placeholder="1 a 8">
+              <div class="btn-row">
+                <button class="btn btn-primary" id="saveContrast">Salvar</button>
+                <button class="btn btn-ghost" id="clearContrast">Limpar</button>
+              </div>
+              <p class="small muted" id="contrastResult">Sem resultados salvos.</p>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- VISÃO PERIFÉRICA -->
+    <section id="periferica" class="section">
+      <div class="container">
+        <header class="section-header">
+          <h2>Visão Periférica (campo visual)</h2>
+          <p class="max-60">Triagem simples para notar perdas periféricas. Não substitui campimetria clínica.</p>
+        </header>
+
+        <div class="two-col">
+          <div class="test-card">
+            <h3>Instruções</h3>
+            <ul>
+              <li>Afaste-se ~40–60 cm (celular) ou ~1 m (monitor).</li>
+              <li>Fixe no ponto central. Sem mover os olhos, perceba se os pontos que piscam nos cantos são visíveis.</li>
+              <li>Faça com um olho por vez, depois com ambos.</li>
+            </ul>
+            <p class="small muted">Se algum ponto some consistentemente, procure avaliação (glaucoma, neuro-oftalmologia, etc.).</p>
+          </div>
+
+          <div class="test-card peripheral">
+            <div class="fixation" aria-label="Quadro com pontos periféricos">
+              <div class="dot" aria-label="Ponto de fixação"></div>
+              <div class="blink" style="top: 8%; left: 12%;"></div>
+              <div class="blink" style="top: 12%; right: 10%;"></div>
+              <div class="blink" style="bottom: 10%; left: 14%;"></div>
+              <div class="blink" style="bottom: 12%; right: 12%;"></div>
+            </div>
+            <div class="stack">
+              <label for="periphSeen">Você vê todos os pontos piscando enquanto fixa no centro?</label>
+              <select id="periphSeen" class="input">
+                <option value="">Selecione...</option>
+                <option value="sim">Sim</option>
+                <option value="as_vezes">Às vezes</option>
+                <option value="nao">Não</option>
+              </select>
+              <button class="btn btn-primary" id="savePeriph">Salvar</button>
+              <p class="small muted" id="periphResult">Sem resultados salvos.</p>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- LEITURA PRÓXIMA -->
+    <section id="leitura" class="section section-alt">
+      <div class="container">
+        <header class="section-header">
+          <h2>Leitura Próxima</h2>
+          <p class="max-60">Avalia conforto de leitura a ~40 cm (presbiopia). Use óculos de leitura se tiver.</p>
+        </header>
+
+        <div class="two-col">
+          <div class="test-card">
+            <h3>Instruções</h3>
+            <ul>
+              <li>Mantenha o celular a ~40 cm (braço semiestendido). Em monitor, aproxime-se 40–50 cm.</li>
+              <li>Leia os blocos abaixo. Encontre o menor tamanho confortável e sem esforço.</li>
+              <li>Cubra um olho por vez, depois use ambos.</li>
+            </ul>
+            <p class="small muted">Calibração ajuda, mas o zoom do navegador pode influenciar.</p>
+          </div>
+
+          <div class="test-card">
+            <div class="near-text" id="nearText" aria-label="Blocos de leitura">
+              <!-- Gerado via JS -->
+            </div>
+            <div class="stack">
+              <label for="nearComfort">Menor tamanho lido com conforto (número do bloco)</label>
+              <input id="nearComfort" type="number" class="input" min="1" max="8" step="1" placeholder="1 a 8">
+              <div class="btn-row">
+                <button class="btn btn-primary" id="saveNear">Salvar</button>
+                <button class="btn btn-ghost" id="clearNear">Limpar</button>
+              </div>
+              <p class="small muted" id="nearResult">Sem resultados salvos.</p>
+            </div>
+          </div>
+        </div>
+
+        <aside class="note small" role="note">
+          Sinais de atenção: fadiga ocular, necessidade de afastar muito o texto, dor de cabeça frequente, visão dupla — considere avaliação profissional.
+        </aside>
+      </div>
+    </section>
+
+    <section class="section">
+      <div class="container center">
+        <p class="small muted">Resultados são estimativas para triagem. Para diagnóstico, consulte um especialista.</p>
+        <a class="btn btn-outline" href="#conteudo">Voltar ao topo</a>
+      </div>
+    </section>
+  </main>
+
+  <footer class="site-footer">
+    <div class="container footer-grid">
+      <div>
+        <a class="logo footer-logo" href="index.html">
+          <span class="logo-mark" aria-hidden="true">W</span>
+          <span class="logo-type">Wolf Vision</span>
+        </a>
+        <p class="footer-note">Triagens visuais para orientar seus próximos passos — sem substituir o especialista.</p>
+      </div>
+
+      <nav aria-label="Rodapé">
+        <h3 class="footer-title">Links</h3>
+        <ul class="footer-links">
+          <li><a href="#acuidade">Acuidade</a></li>
+          <li><a href="#astigmatismo">Astigmatismo</a></li>
+          <li><a href="#daltonismo">Daltonismo</a></li>
+          <li><a href="#contraste">Contraste</a></li>
+          <li><a href="#periferica">Periférica</a></li>
+          <li><a href="#leitura">Leitura</a></li>
+        </ul>
+      </nav>
+
+      <div>
+        <h3 class="footer-title">Contato</h3>
+        <ul class="footer-links">
+          <li><a href="mailto:ivo.furguieri@escola.pr.gov.br">ivo.furguieri@escola.pr.gov.br</a></li>
+          <li><a href="#">Política de Privacidade</a></li>
+          <li><a href="#">Termos de Uso</a></li>
+        </ul>
+      </div>
+    </div>
+
+    <div class="container footer-bottom">
+      <small>© <span id="year"></span> Wolf Vision. Todos os direitos reservados.</small>
+    </div>
+  </footer>
+
+  <script>
+    // Atualiza ano
+    document.getElementById('year').textContent = new Date().getFullYear();
+
+    // Estado global simples
+    const state = {
+      pxPerMm: null, // calibração
+      distanceM: null,
+      acuity: {}, // {OD: "20/25", OE: "20/20"}
+      astig: null,
+      contrast: null,
+      periph: null,
+      near: null
+    };
+
+    // Utilidades
+    const $ = (s, p = document) => p.querySelector(s);
+    const $$ = (s, p = document) => Array.from(p.querySelectorAll(s));
+    const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
+
+    // ---------------- Calibração ----------------
+    const calRange = $('#calWidth');
+    const calLabel = $('#calLabel');
+    const calBar = $('.calibration-bar');
+    const distInput = $('#distInput');
+    const distUnit = $('#distUnit');
+    const calStatus = $('#calStatus');
+
+    function loadCalibration() {
+      const stored = localStorage.getItem('pxPerMm');
+      if (stored) {
+        state.pxPerMm = parseFloat(stored);
+        calStatus.textContent = `Calibração aplicada: ${state.pxPerMm.toFixed(2)} px/mm`;
+      }
+      const storedDist = localStorage.getItem('distanceM');
+      if (storedDist) {
+        state.distanceM = parseFloat(storedDist);
+        // preenche UI
+        const cm = (state.distanceM * 100).toFixed(0);
+        distInput.value = cm;
+        distUnit.value = 'cm';
+      }
+    }
+
+    function updateCalBar() {
+      const px = parseInt(calRange.value, 10);
+      calBar.style.width = px + 'px';
+      calLabel.textContent = `Ajuste até igualar ao seu cartão (85,6 mm) — largura atual: ${px}px`;
+    }
+
+    function saveCalibration() {
+      const widthPx = parseInt(calRange.value, 10);
+      const pxPerMm = widthPx / 85.6;
+      state.pxPerMm = pxPerMm;
+      localStorage.setItem('pxPerMm', String(pxPerMm));
+      calStatus.textContent = `Calibração aplicada: ${pxPerMm.toFixed(2)} px/mm`;
+      renderSnellen();
+    }
+
+    function clearCalibration() {
+      state.pxPerMm = null;
+      localStorage.removeItem('pxPerMm');
+      calStatus.textContent = 'Sem calibração — os tamanhos serão aproximados.';
+      renderSnellen();
+    }
+
+    function saveDistance() {
+      const val = parseFloat(distInput.value);
+      if (!val) return;
+      const m = distUnit.value === 'm' ? val : val / 100;
+      state.distanceM = m;
+      localStorage.setItem('distanceM', String(m));
+      renderSnellen();
+    }
+
+    $('#saveCal').addEventListener('click', saveCalibration);
+    $('#clearCal').addEventListener('click', clearCalibration);
+    calRange.addEventListener('input', updateCalBar);
+    distInput.addEventListener('change', saveDistance);
+    distUnit.addEventListener('change', saveDistance);
+    updateCalBar();
+    loadCalibration();
+
+    // ---------------- Acuidade (Snellen) ----------------
+    const snellenConfig = [
+      { ratio: '20/200', letters: 'E' },
+      { ratio: '20/100', letters: 'FP' },
+      { ratio: '20/70',  letters: 'TOZ' },
+      { ratio: '20/50',  letters: 'LPED' },
+      { ratio: '20/40',  letters: 'PECFD' },
+      { ratio: '20/30',  letters: 'EDFCZP' },
+      { ratio: '20/25',  letters: 'FELOPZD' },
+      { ratio: '20/20',  letters: 'DEFPOTEC' },
+      { ratio: '20/15',  letters: 'LEFODPCT' }
+    ];
+
+    const snellenArea = $('#snellenArea');
+    const lastLineSel = $('#lastLine');
+    const acuityResult = $('#acuityResult');
+
+    function arcminToMm(angleMinutes, distanceM) {
+      // h ≈ 2 * d * tan(angle/2); angle em minutos de arco
+      const angleRad = (angleMinutes / 60) * (Math.PI / 180);
+      return 2 * distanceM * Math.tan(angleRad / 2) * 1000; // mm
+    }
+
+    function ratioToScale(ratio) {
+      // "20/x" => escala x/20
+      const parts = ratio.split('/');
+      const top = parseFloat(parts[0]);
+      const bottom = parseFloat(parts[1]);
+      return bottom / top; // 20/40 => 2x o 20/20
+    }
+
+    function renderSnellen() {
+      snellenArea.innerHTML = '';
+      lastLineSel.innerHTML = '<option value="">Selecione...</option>';
+      const distanceM = state.distanceM || 3; // 3m padrão
+      const pxPerMm = state.pxPerMm || (96 / 25.4); // aproximação 96dpi
+
+      snellenConfig.forEach((row, idx) => {
+        const scale = ratioToScale(row.ratio);
+        const h20_20_mm = arcminToMm(5, distanceM); // altura optótipo 20/20
+        const lineHeightMm = h20_20_mm * scale;
+        const approxPx = Math.max(10, Math.round(lineHeightMm * pxPerMm * 0.9)); // 0.9 ~ aproximação da altura da maiúscula
+
+        const line = document.createElement('div');
+        line.className = 'snellen-line center';
+        line.style.fontSize = approxPx + 'px';
+        line.setAttribute('aria-label', `Linha ${row.ratio}`);
+        line.innerHTML = `
+          <div class="ratio">${row.ratio}</div>
+          <div role="text">${row.letters}</div>
+        `;
+        snellenArea.appendChild(line);
+
+        const opt = document.createElement('option');
+        opt.value = row.ratio;
+        opt.textContent = row.ratio;
+        lastLineSel.appendChild(opt);
+      });
+    }
+
+    renderSnellen();
+
+    $('#saveAcuity').addEventListener('click', () => {
+      const eye = $('#eyeSelect').value;
+      const ratio = $('#lastLine').value;
+      if (!ratio) { alert('Selecione a última linha lida.'); return; }
+      state.acuity[eye] = ratio;
+      localStorage.setItem('acuity', JSON.stringify(state.acuity));
+      acuityResult.textContent = `Resultados: OD=${state.acuity.OD || '—'} | OE=${state.acuity.OE || '—'}`;
+    });
+    $('#resetAcuity').addEventListener('click', () => {
+      state.acuity = {};
+      localStorage.removeItem('acuity');
+      $('#lastLine').value = '';
+      acuityResult.textContent = 'Sem resultados salvos.';
+    });
+
+    // Carrega resultados anteriores
+    (() => {
+      const a = localStorage.getItem('acuity');
+      if (a) {
+        state.acuity = JSON.parse(a);
+        acuityResult.textContent = `Resultados: OD=${state.acuity.OD || '—'} | OE=${state.acuity.OE || '—'}`;
+      }
+    })();
+
+    // ---------------- Astigmatismo ----------------
+    const wheel = $('#wheel');
+    const thickness = $('#thickness');
+    const astigResult = $('#astigResult');
+
+    function renderWheel() {
+      wheel.innerHTML = '';
+      const rays = 36; // a cada 10°
+      for (let i = 0; i < rays; i++) {
+        const el = document.createElement('span');
+        el.className = 'ray';
+        el.style.width = thickness.value + 'px';
+        el.style.transform = `rotate(${i * (360 / rays)}deg) translate(-50%, -50%)`;
+        wheel.appendChild(el);
+      }
+    }
+    renderWheel();
+    thickness.addEventListener('input', renderWheel);
+
+    $('#saveAstig').addEventListener('click', () => {
+      const val = $('#astigAnswer').value;
+      if (!val) { alert('Selecione uma opção.'); return; }
+      state.astig = val;
+      localStorage.setItem('astig', val);
+      astigResult.textContent = `Observação salva: ${val}`;
+    });
+    (() => {
+      const a = localStorage.getItem('astig');
+      if (a) { state.astig = a; astigResult.textContent = `Observação salva: ${a}`; $('#astigAnswer').value = a; }
+    })();
+
+    // ---------------- Daltonismo ----------------
+    const ishInputs = $$('.ish-answer');
+    const ishiResult = $('#ishiResult');
+    $('#saveIshi').addEventListener('click', () => {
+      const vals = ishInputs.map(i => i.value.trim());
+      localStorage.setItem('ishihara', JSON.stringify(vals));
+      ishiResult.textContent = `Respostas salvas: ${vals.filter(v => v).join(', ') || '—'}`;
+    });
+    $('#clearIshi').addEventListener('click', () => {
+      ishInputs.forEach(i => i.value = '');
+      localStorage.removeItem('ishihara');
+      ishiResult.textContent = 'Sem respostas salvas.';
+    });
+    (() => {
+      const prev = localStorage.getItem('ishihara');
+      if (prev) {
+        const vals = JSON.parse(prev);
+        ishInputs.forEach((i, idx) => i.value = vals[idx] || '');
+        ishiResult.textContent = `Respostas salvas: ${vals.filter(v => v).join(', ') || '—'}`;
+      }
+    })();
+
+    // ---------------- Contraste ----------------
+    const contrastGrid = $('#contrastGrid');
+    const levels = [1, 0.7, 0.5, 0.35, 0.25, 0.18, 0.12, 0.08];
+    function renderContrast() {
+      contrastGrid.innerHTML = '';
+      levels.forEach((amp, i) => {
+        const card = document.createElement('div');
+        card.className = 'contrast-card';
+        card.innerHTML = `
+          <div class="contrast-label">Nível ${i+1}</div>
+          <div class="contrast-view contrast-stripes" style="--amp:${amp}"></div>
+        `;
+        contrastGrid.appendChild(card);
+      });
+    }
+    renderContrast();
+    const contrastResult = $('#contrastResult');
+    $('#saveContrast').addEventListener('click', () => {
+      const lvl = parseInt($('#contrastLevel').value, 10);
+      if (!lvl || lvl < 1 || lvl > 8) { alert('Informe um número de 1 a 8.'); return; }
+      state.contrast = lvl;
+      localStorage.setItem('contrast', String(lvl));
+      contrastResult.textContent = `Maior nível visto: ${lvl}`;
+    });
+    $('#clearContrast').addEventListener('click', () => {
+      state.contrast = null;
+      localStorage.removeItem('contrast');
+      $('#contrastLevel').value = '';
+      contrastResult.textContent = 'Sem resultados salvos.';
+    });
+    (() => {
+      const c = localStorage.getItem('contrast');
+      if (c) { state.contrast = parseInt(c, 10); contrastResult.textContent = `Maior nível visto: ${state.contrast}`; $('#contrastLevel').value = state.contrast; }
+    })();
+
+    // ---------------- Periférica ----------------
+    const periphResult = $('#periphResult');
+    $('#savePeriph').addEventListener('click', () => {
+      const val = $('#periphSeen').value;
+      if (!val) { alert('Selecione uma opção.'); return; }
+      state.periph = val;
+      localStorage.setItem('periph', val);
+      periphResult.textContent = `Resposta: ${val}`;
+    });
+    (() => {
+      const p = localStorage.getItem('periph');
+      if (p) { state.periph = p; periphResult.textContent = `Resposta: ${p}`; $('#periphSeen').value = p; }
+    })();
+
+    // ---------------- Leitura Próxima ----------------
+    const nearText = $('#nearText');
+    const nearResult = $('#nearResult');
+    function renderNear() {
+      nearText.innerHTML = '';
+      // 8 blocos de tamanhos decrescentes
+      const sizes = [1.25, 1.1, 1.0, 0.9, 0.8, 0.7, 0.62, 0.55]; // em rem
+      sizes.forEach((rem, i) => {
+        const block = document.createElement('div');
+        block.className = 'near-block';
+        block.innerHTML = `
+          <div class="near-meta">Bloco ${i+1} • tamanho ~${rem.toFixed(2)}rem</div>
+          <p style="font-size:${rem}rem; line-height:1.45">A leitura confortável deste parágrafo a cerca de 40 cm indica bom desempenho para esta faixa. Se você precisar afastar ou aproximar muito, ou tiver cansaço, anote para discutir com um especialista.</p>
+        `;
+        nearText.appendChild(block);
+      });
+    }
+    renderNear();
+
+    $('#saveNear').addEventListener('click', () => {
+      const v = parseInt($('#nearComfort').value, 10);
+      if (!v || v < 1 || v > 8) { alert('Informe um número de 1 a 8.'); return; }
+      state.near = v;
+      localStorage.setItem('near', String(v));
+      nearResult.textContent = `Menor bloco confortável: ${v}`;
+    });
+    $('#clearNear').addEventListener('click', () => {
+      state.near = null;
+      localStorage.removeItem('near');
+      $('#nearComfort').value = '';
+      nearResult.textContent = 'Sem resultados salvos.';
+    });
+    (() => {
+      const n = localStorage.getItem('near');
+      if (n) { state.near = parseInt(n, 10); nearResult.textContent = `Menor bloco confortável: ${state.near}`; $('#nearComfort').value = state.near; }
+    })();
+  </script>
+</body>
+</html>
