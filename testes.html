@@ -465,6 +465,23 @@
         </aside>
       </div>
     </section>
+    <section id="diagnostico" class="section">
+  <div class="container">
+    <header class="section-header">
+      <h2>Diagnóstico Parcial</h2>
+      <p class="max-60">Resumo interpretativo com base nos resultados salvos. Não substitui avaliação clínica.</p>
+    </header>
+
+    <div class="test-card stack" id="dxCard">
+      <div id="dxSummary" class="stack"></div>
+      <div class="btn-row">
+        <button class="btn btn-primary" id="dxRefresh">Atualizar diagnóstico</button>
+        <button class="btn btn-ghost" id="dxCopy">Copiar resumo</button>
+      </div>
+      <p class="small muted" id="dxCalibNote"></p>
+    </div>
+  </div>
+</section>
 
     <section class="section">
       <div class="container center">
@@ -818,6 +835,172 @@
       const n = localStorage.getItem('near');
       if (n) { state.near = parseInt(n, 10); nearResult.textContent = `Menor bloco confortável: ${state.near}`; $('#nearComfort').value = state.near; }
     })();
+    // ---------------- Diagnóstico Parcial ----------------
+const dxSummaryEl = document.getElementById('dxSummary');
+const dxRefreshBtn = document.getElementById('dxRefresh');
+const dxCopyBtn = document.getElementById('dxCopy');
+const dxCalibNote = document.getElementById('dxCalibNote');
+
+function snellenToDecimal(ratio) {
+  if (!ratio || ratio.indexOf('/') === -1) return null;
+  const [top, bottom] = ratio.split('/').map(Number);
+  if (!top || !bottom) return null;
+  return +(top / bottom).toFixed(2); // 20/20 = 1.00, 20/40 = 0.50
+}
+function snellenIdx(ratio) {
+  const idx = snellenConfig.findIndex(r => r.ratio === ratio);
+  return idx >= 0 ? idx : null;
+}
+function tag(kind) {
+  return kind === 'ok' ? '✅' : kind === 'warn' ? '⚠️' : kind === 'bad' ? '❗' : 'ℹ️';
+}
+
+function computePartialDx() {
+  if (!dxSummaryEl) return '';
+  const lines = [];
+
+  // Nota de calibração/distância
+  dxCalibNote.textContent = state.pxPerMm
+    ? `Calibração aplicada (${state.pxPerMm.toFixed(2)} px/mm) • Distância: ${state.distanceM ? (state.distanceM*100).toFixed(0)+' cm' : 'padrão 3 m'}.`
+    : 'Sem calibração — tamanhos aproximados. Distância usada: ' + (state.distanceM ? (state.distanceM*100).toFixed(0) + ' cm' : 'padrão 3 m') + '.';
+
+  // 1) Acuidade
+  let acuitySeverity = 'ok';
+  if (state.acuity && (state.acuity.OD || state.acuity.OE)) {
+    const od = state.acuity.OD || '—';
+    const oe = state.acuity.OE || '—';
+    const odDec = snellenToDecimal(od);
+    const oeDec = snellenToDecimal(oe);
+    const odTxt = od !== '—' ? `${od} (${odDec?.toFixed(2) ?? '—'})` : '—';
+    const oeTxt = oe !== '—' ? `${oe} (${oeDec?.toFixed(2) ?? '—'})` : '—';
+
+    const order = { ok: 0, warn: 1, bad: 2 };
+    function cat(dec) {
+      if (dec == null) return null;
+      if (dec >= 1.0) return 'ok';     // ≥ 20/20
+      if (dec >= 0.6) return 'warn';   // ~20/32
+      return 'bad';                    // ≤ 20/40
+    }
+    const catOD = cat(odDec);
+    const catOE = cat(oeDec);
+    if (catOD && order[catOD] > order[acuitySeverity]) acuitySeverity = catOD;
+    if (catOE && order[catOE] > order[acuitySeverity]) acuitySeverity = catOE;
+
+    let diffTxt = '';
+    if (od !== '—' && oe !== '—') {
+      const diff = Math.abs(snellenIdx(od) - snellenIdx(oe));
+      if (!isNaN(diff) && diff >= 2) {
+        diffTxt = ' • Diferença entre olhos ≥ 2 linhas (possível anisometropia).';
+        acuitySeverity = order[acuitySeverity] < order['warn'] ? 'warn' : acuitySeverity;
+      }
+    }
+    lines.push(`${tag(acuitySeverity)} Acuidade: OD ${odTxt} | OE ${oeTxt}${diffTxt}`);
+  } else {
+    lines.push('ℹ️ Acuidade: sem resultados salvos.');
+  }
+
+  // 2) Astigmatismo
+  if (state.astig) {
+    let status = 'ok';
+    let txt = 'Astigmatismo: ';
+    if (state.astig === 'nao') { txt += 'sem diferença evidente.'; }
+    else if (state.astig === 'leve') { txt += 'diferença leve entre direções.'; status = 'warn'; }
+    else { txt += 'diferença marcante entre direções.'; status = 'bad'; }
+    lines.push(`${tag(status)} ${txt}`);
+  } else {
+    lines.push('ℹ️ Astigmatismo: sem observação salva.');
+  }
+
+  // 3) Ishihara (triagem)
+  const ishRaw = localStorage.getItem('ishihara');
+  if (ishRaw) {
+    const ans = JSON.parse(ishRaw);
+    const expected = ['12','8','29']; // ajuste se usar pranchas diferentes
+    let correct = 0;
+    ans.forEach((v, i) => { if (v && expected[i] && v.trim() === expected[i]) correct++; });
+    let status = 'ok';
+    let txt = `Ishihara: ${correct}/${expected.length} corretas.`;
+    if (correct <= 1) { status = 'warn'; txt += ' Possível alteração de cores.'; }
+    if (correct === 0) { status = 'bad'; txt += ' Sugere alteração significativa.'; }
+    lines.push(`${tag(status)} ${txt}`);
+  } else {
+    lines.push('ℹ️ Ishihara: sem respostas salvas.');
+  }
+
+  // 4) Contraste
+  if (state.contrast != null) {
+    const lvl = Number(state.contrast);
+    let status = 'ok';
+    let txt = `Contraste: nível ${lvl}.`;
+    if (lvl >= 6) status = 'ok';
+    else if (lvl >= 4) { status = 'warn'; txt += ' Sensibilidade moderada.'; }
+    else { status = 'bad'; txt += ' Sensibilidade reduzida (catarata/retina podem influenciar).'; }
+    lines.push(`${tag(status)} ${txt}`);
+  } else {
+    lines.push('ℹ️ Contraste: sem resultado salvo.');
+  }
+
+  // 5) Visão periférica
+  if (state.periph) {
+    let status = 'ok';
+    let txt = 'Visão periférica: ';
+    if (state.periph === 'sim') { txt += 'pontos visíveis.'; }
+    else if (state.periph === 'as_vezes') { status = 'warn'; txt += 'alguns pontos falham às vezes.'; }
+    else { status = 'bad'; txt += 'pontos ausentes com frequência.'; }
+    lines.push(`${tag(status)} ${txt}`);
+  } else {
+    lines.push('ℹ️ Periférica: sem resposta salva.');
+  }
+
+  // 6) Leitura próxima
+  if (state.near != null) {
+    const v = Number(state.near); // 1 (maior) → 8 (menor)
+    let status = 'ok';
+    let txt = `Leitura próxima: bloco ${v}.`;
+    if (v >= 6) { status = 'ok'; txt += ' Bom desempenho a ~40 cm.'; }
+    else if (v >= 4) { status = 'warn'; txt += ' Leve dificuldade para tamanhos pequenos.'; }
+    else { status = 'bad'; txt += ' Dificuldade importante para perto (presbiopia/erro refrativo).'; }
+    lines.push(`${tag(status)} ${txt}`);
+  } else {
+    lines.push('ℹ️ Leitura próxima: sem resultado salvo.');
+  }
+
+  // Resumo geral
+  const overall = (() => {
+    let sev = 'ok';
+    const score = {'ok':0,'warn':1,'bad':2};
+    lines.forEach(l => {
+      if (l.startsWith('❗')) sev = 'bad';
+      else if (l.startsWith('⚠️') && score[sev] < 1) sev = 'warn';
+    });
+    return sev;
+  })();
+  const finalMsg =
+    overall === 'ok'
+      ? '✅ Resumo geral: dentro do esperado para triagem. Mantenha acompanhamento de rotina.'
+      : overall === 'warn'
+      ? '⚠️ Resumo geral: alterações leves. Refaça os testes com calibração; se persistirem, considere avaliação profissional.'
+      : '❗ Resumo geral: alterações relevantes. Recomenda-se avaliação com especialista.';
+  lines.unshift(finalMsg);
+
+  dxSummaryEl.innerHTML = lines.map(l => `<div>${l}</div>`).join('');
+  return lines.join('\n');
+}
+
+function copyDx() {
+  const text = computePartialDx();
+  if (navigator.clipboard) {
+    navigator.clipboard.writeText(text).then(() => alert('Resumo copiado.'));
+  } else {
+    alert('Copie manualmente o resumo exibido.');
+  }
+}
+
+if (dxRefreshBtn && dxCopyBtn) {
+  dxRefreshBtn.addEventListener('click', computePartialDx);
+  dxCopyBtn.addEventListener('click', copyDx);
+  computePartialDx(); // inicial
+}
   </script>
 </body>
 </html>
